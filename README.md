@@ -1,70 +1,106 @@
-# Getting Started with Create React App
+# MongoDB Aggregation Pipeline UI
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A small web tool for running **MongoDB aggregation pipelines** from the browser
+and exploring the results. Type a pipeline as JSON, hit **Execute**, and view
+the output as formatted JSON or as an interactive, collapsible tree.
 
-## Available Scripts
+Built with **React** (frontend) and **FastAPI + PyMongo** (backend).
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- Run any aggregation pipeline (`$match`, `$project`, `$group`, `$sort`, …) against a collection
+- Toggle between a plain JSON view and an interactive tree view (`react-json-tree`)
+- MongoDB `ObjectId`s are converted to strings so results render cleanly
+- Includes a loader script and 100 sample [openEHR](https://www.openehr.org/) documents to try it with
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Tech stack
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+| Layer | Tools |
+|---|---|
+| Frontend | React 18, Axios, react-json-tree, react-switch |
+| Backend | Python, FastAPI, PyMongo, Uvicorn |
+| Database | MongoDB |
 
-### `npm test`
+## Getting started
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Prerequisites
 
-### `npm run build`
+- Node.js 18+
+- Python 3.10+
+- MongoDB running locally on `mongodb://localhost:27017`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 1. Clone
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+git clone https://github.com/Kumarsujay03/mongodb-ui.git
+cd mongodb-ui
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 2. Load the sample data (optional)
 
-### `npm run eject`
+```bash
+pip install pymongo fastapi uvicorn
+python pythonscript.py
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+This inserts `100docs.json` into the `docs` database, `collection` collection.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 3. Start the backend
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```bash
+python main.py
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+The API runs on `http://localhost:8000`.
 
-## Learn More
+### 4. Start the frontend
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+npm install
+npm start
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Open `http://localhost:3000`.
 
-### Code Splitting
+## Example pipelines
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Count documents by category:
 
-### Analyzing the Bundle Size
+```json
+[{ "$group": { "_id": "$versions.data.category.value", "count": { "$sum": 1 } } }]
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Show only creation times, newest first:
 
-### Making a Progressive Web App
+```json
+[
+  { "$project": { "time_created": 1 } },
+  { "$sort": { "time_created.value": -1 } },
+  { "$limit": 10 }
+]
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## API
 
-### Advanced Configuration
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/` | Health check |
+| `POST` | `/docs/` | Run a pipeline. Body: `{ "pipeline": [ ... ] }` |
+| `POST` | `/aggregate/` | Same as `/docs/` |
+| `GET` | `/test-pipeline/` | Runs a fixed sample `$project` pipeline |
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Project structure
 
-### Deployment
+```text
+mongodb-ui/
+├── main.py           # FastAPI backend (pipeline execution)
+├── pythonscript.py   # Loads 100docs.json into MongoDB
+├── 100docs.json      # Sample openEHR documents
+├── src/App.js        # React UI
+└── public/
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Notes
 
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+This is a local development tool. The API accepts arbitrary pipelines and
+allows all CORS origins, so don't expose it to the internet as-is.
